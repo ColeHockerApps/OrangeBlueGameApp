@@ -1,7 +1,7 @@
 {
   "images" : [
     {
-      "filename" : "be2.png",
+      "filename" : "Icon.jpg",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
@@ -13,7 +13,7 @@
           "value" : "dark"
         }
       ],
-      "filename" : "be2 1.png",
+      "filename" : "Icon 1.jpg",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
@@ -25,7 +25,7 @@
           "value" : "tinted"
         }
       ],
-      "filename" : "be2 2.png",
+      "filename" : "Icon 2.jpg",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
