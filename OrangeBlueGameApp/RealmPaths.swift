@@ -31,6 +31,10 @@ final class RealmPaths: ObservableObject {
         } else {
             tomeScroll = URL(string: defaultScroll)!
         }
+
+       
+        
+        hasStoredTrail = (defaults.string(forKey: trailKey) != nil)
     }
 
     func updateEntry(_ link: String) {
@@ -47,14 +51,15 @@ final class RealmPaths: ObservableObject {
 
     func storeTrailIfNeeded(_ link: URL) {
         guard hasStoredTrail == false else { return }
-        hasStoredTrail = true
 
         let defaults = UserDefaults.standard
         if defaults.string(forKey: trailKey) != nil {
+            hasStoredTrail = true
             return
         }
 
         defaults.set(link.absoluteString, forKey: trailKey)
+        hasStoredTrail = true
     }
 
     func restoreStoredTrail() -> URL? {
@@ -64,6 +69,12 @@ final class RealmPaths: ObservableObject {
             return url
         }
         return nil
+    }
+
+    // ✅ for testing/debug (optional)
+    func resetStoredTrail() {
+        UserDefaults.standard.removeObject(forKey: trailKey)
+        hasStoredTrail = false
     }
 
     func saveMarks(_ items: [[String: Any]]) {

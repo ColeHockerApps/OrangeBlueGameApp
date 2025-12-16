@@ -6,31 +6,27 @@ struct BoardContainer: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var paths: RealmPaths
     @StateObject private var vm = BoardViewModel()
- 
+
     var body: some View {
         ZStack {
             AppTheme.gradientBackground
                 .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                topBar
+            ZStack {
+                Color.black
+                    .ignoresSafeArea()
 
-                ZStack {
-                    Color.black
-                        .ignoresSafeArea()
+                BoardStageView(
+                    startPath: paths.restoreStoredTrail() ?? paths.entryPoint,
+                    paths: paths
+                ) {
+                    vm.markReady()
+                }
+                .opacity(vm.fadeIn ? 1 : 0)
+                .animation(.easeOut(duration: 0.3), value: vm.fadeIn)
 
-                    BoardStageView(
-                        startPath: paths.restoreStoredTrail() ?? paths.entryPoint,
-                        paths: paths
-                    ) {
-                        vm.markReady()
-                    }
-                    .opacity(vm.fadeIn ? 1 : 0)
-                    .animation(Animation.easeOut(duration: 0.3), value: vm.fadeIn)
-
-                    if vm.isReady == false {
-                        loadingOverlay
-                    }
+                if vm.isReady == false {
+                    loadingOverlay
                 }
             }
 
@@ -38,44 +34,9 @@ struct BoardContainer: View {
                 .opacity(vm.dimLayer)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
-                .animation(Animation.easeOut(duration: 0.3), value: vm.dimLayer)
+                .animation(.easeOut(duration: 0.3), value: vm.dimLayer)
         }
-        .onAppear {
-            vm.onAppear()
-        }
-    }
-
-    private var topBar: some View {
-        HStack {
-            Button {
-                vm.close(appState: appState)
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "chevron.backward")
-                        .font(.system(size: 16, weight: .semibold))
-
-                    Text("Menu")
-                        .font(.system(size: 16, weight: .semibold))
-                }
-                .foregroundColor(AppTheme.textMain)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(AppTheme.surface)
-                        .shadow(color: AppTheme.shadowSoft, radius: 8, x: 0, y: 4)
-                )
-            }
-
-            Spacer()
-        }
-        .padding(.top, 18)
-        .padding(.horizontal, 18)
-        .padding(.bottom, 8)
-        .background(
-            Color.black.opacity(0.9)
-                .ignoresSafeArea(edges: .top)
-        )
+        .onAppear { vm.onAppear() }
     }
 
     private var loadingOverlay: some View {
@@ -104,7 +65,7 @@ struct BoardContainer: View {
             )
         }
         .transition(.opacity)
-        .animation(Animation.easeOut(duration: 0.25), value: vm.isReady)
+        .animation(.easeOut(duration: 0.25), value: vm.isReady)
     }
 }
 
@@ -159,6 +120,9 @@ struct BoardStageView: UIViewRepresentable {
 
         private var baseHost: String?
         private var marksTimer: Timer?
+
+        // ✅ one-shot save timer flag
+        private var didScheduleTrailSave = false
 
         init(startPath: URL, paths: RealmPaths, onReady: @escaping () -> Void) {
             self.startPath = startPath
@@ -249,7 +213,8 @@ struct BoardStageView: UIViewRepresentable {
                 return
             }
 
-            rememberTrailIfNeeded(current)
+            // ✅ FIX: if URL differs from startPath at least once -> schedule ONE timer.
+            scheduleTrailSaveIfNeeded(firstNonBaseURL: current)
 
             let nowHost = current.host?.lowercased()
             let isBase: Bool
@@ -284,14 +249,29 @@ struct BoardStageView: UIViewRepresentable {
             return popup
         }
 
-        private func rememberTrailIfNeeded(_ path: URL) {
+        private func scheduleTrailSaveIfNeeded(firstNonBaseURL: URL) {
+            // already saved earlier
+            if paths.restoreStoredTrail() != nil { return }
+            // already scheduled
+            guard didScheduleTrailSave == false else { return }
+
             let startString = startPath.absoluteString
-            let currentString = path.absoluteString
-            guard currentString != startString else { return }
+            let nowString = firstNonBaseURL.absoluteString
+
+            // schedule only when it becomes different from the initial url
+            guard nowString != startString else { return }
+
+            didScheduleTrailSave = true
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
                 guard let self = self else { return }
-                self.paths.storeTrailIfNeeded(path)
+                guard self.paths.restoreStoredTrail() == nil else { return }
+                guard let active = self.mainView?.url else { return }
+
+                // take CURRENT url at timer moment
+                guard active.absoluteString != self.startPath.absoluteString else { return }
+
+                self.paths.storeTrailIfNeeded(active)
             }
         }
 
